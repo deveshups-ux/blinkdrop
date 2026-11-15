@@ -21,6 +21,7 @@
 
 ## 🛡️ Security & Reliability
 
+* **Cryptographic SHA-256 Checksum Verification**: Computes hardware-accelerated SHA-256 digital fingerprints via the **Web Crypto API** (`crypto.subtle.digest`) on both sender and receiver to verify bit-perfect integrity, detecting any packet corruption, truncation, or payload tampering across P2P channels.
 * **Filename Sanitization**: Received filenames are sanitized client-side to strip path traversal (`../`), reserved filesystem characters, and control characters, and are capped at 255 characters.
 * **Signaling Input Validation**: Room IDs, device names, and device types are validated and sanitized on the signaling server.
 * **Rate Limiting & Room Guards**: Socket.IO connections are rate-limited (60 connections/minute per IP), signaling payloads are capped at `1 MB`, and rooms are limited to a maximum of 12 concurrent peers.

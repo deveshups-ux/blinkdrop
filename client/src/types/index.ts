@@ -11,6 +11,7 @@ export interface FileMeta {
   size: number;
   type: string;
   totalChunks: number;
+  hash?: string; // SHA-256 digital fingerprint
 }
 
 export interface BatchMeta {
@@ -36,6 +37,9 @@ export interface TransferProgress {
   type: 'sending' | 'receiving';
   status: 'pending' | 'transferring' | 'completed' | 'cancelled' | 'error';
   isStreamingToDisk?: boolean;
+  hash?: string;
+  isVerified?: boolean;
+  verificationFailed?: boolean;
 }
 
 export interface PacketHeader {

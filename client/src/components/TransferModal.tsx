@@ -1,9 +1,10 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowUpRight, ArrowDownLeft, CheckCircle2, Zap, Files, HardDrive, Sun } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, CheckCircle2, Zap, Files, HardDrive, Sun, ShieldCheck, ShieldAlert } from 'lucide-react';
 import type { TransferProgress } from '../types';
 import { formatBytes } from '../utils/helpers';
 import { wakeLockManager } from '../utils/wakeLock';
+import { formatHashPreview } from '../utils/crypto';
 
 interface TransferModalProps {
   transfer: TransferProgress | null;
@@ -101,6 +102,28 @@ export const TransferModal: React.FC<TransferModalProps> = ({ transfer, onClose 
                 <Sun className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
                 <span>Screen Sleep Prevented (Active)</span>
               </span>
+            </div>
+          )}
+
+          {/* SHA-256 Cryptographic Integrity Badge */}
+          {transfer.hash && (
+            <div className="mb-3 flex items-center justify-between px-3 py-1.5 rounded-xl bg-gray-950/80 border border-gray-800 text-[11px]">
+              <span className="text-gray-400">Integrity</span>
+              {transfer.verificationFailed ? (
+                <span className="flex items-center gap-1.5 text-rose-400 font-medium">
+                  <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Checksum Mismatch!</span>
+                </span>
+              ) : transfer.isVerified ? (
+                <span className="flex items-center gap-1.5 text-emerald-400 font-medium" title={transfer.hash}>
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>SHA-256 Bit-Perfect ({formatHashPreview(transfer.hash)})</span>
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 text-cyan-400/90 font-mono text-[10px]">
+                  <span>SHA: {formatHashPreview(transfer.hash)}</span>
+                </span>
+              )}
             </div>
           )}
 

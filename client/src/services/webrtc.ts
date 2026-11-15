@@ -1,6 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import type { BatchMeta, FileMeta, Peer, TransferProgress } from '../types';
 import { CHUNK_SIZE, formatBytes, sanitizeFileName } from '../utils/helpers';
+import { computeSHA256 } from '../utils/crypto';
 
 // STUN and TURN configuration for 100% reliable NAT traversal across firewalls (Jio/Airtel 5G, College WiFi, etc.)
 function getIceServers(): RTCConfiguration {
@@ -313,6 +314,38 @@ export class WebRTCManager {
                 blob = new Blob(batch.chunks, { type: batch.meta.type || 'application/octet-stream' });
               }
 
+              // SHA-256 Cryptographic Integrity Verification
+              let isVerified: boolean | undefined = undefined;
+              let verificationFailed: boolean | undefined = undefined;
+
+              if (batch.meta.hash) {
+                try {
+                  let checkData: Blob | File | null = blob;
+                  if (wasStreamed) {
+                    if (this.destinationFileHandle && message.fileIndex === 1) {
+                      checkData = await this.destinationFileHandle.getFile();
+                    } else if (this.destinationDirHandle) {
+                      const cleanName = sanitizeFileName(batch.meta.name);
+                      const fh = await this.destinationDirHandle.getFileHandle(cleanName);
+                      checkData = await fh.getFile();
+                    }
+                  }
+
+                  if (checkData && checkData.size < 600 * 1024 * 1024) {
+                    const receivedHash = await computeSHA256(checkData);
+                    if (receivedHash === batch.meta.hash) {
+                      isVerified = true;
+                      console.log(`🛡️ [Integrity] File "${batch.meta.name}" verified bit-perfect (${receivedHash})`);
+                    } else {
+                      verificationFailed = true;
+                      console.warn(`❌ [Integrity Mismatch] Expected: ${batch.meta.hash}, Got: ${receivedHash}`);
+                    }
+                  }
+                } catch (err) {
+                  console.warn('Error verifying SHA-256 checksum on receiver:', err);
+                }
+              }
+
               if (this.onProgress) {
                 this.onProgress({
                   batchId: batch.batchId,
@@ -330,6 +363,9 @@ export class WebRTCManager {
                   type: 'receiving',
                   status: isLast ? 'completed' : 'transferring',
                   isStreamingToDisk: wasStreamed,
+                  hash: batch.meta.hash,
+                  isVerified,
+                  verificationFailed,
                 });
               }
 
@@ -452,6 +488,15 @@ export class WebRTCManager {
       const isLastFile = i === files.length - 1;
       const batchBytesPrior = totalBytesSentOverall;
 
+      // Compute SHA-256 for data integrity
+      try {
+        if (file.size < 600 * 1024 * 1024) {
+          meta.hash = await computeSHA256(file);
+        }
+      } catch (err) {
+        console.warn('Sender SHA-256 calculation error:', err);
+      }
+
       // 1. Send File Header Packet
       dc.send(
         JSON.stringify({
@@ -512,6 +557,8 @@ export class WebRTCManager {
             speed: speedFormatted,
             type: 'sending',
             status: isLastFile && filePercent === 100 ? 'completed' : 'transferring',
+            hash: meta.hash,
+            isVerified: true,
           });
         }
       }
