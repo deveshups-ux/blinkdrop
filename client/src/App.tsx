@@ -6,6 +6,7 @@ import { TransferModal } from './components/TransferModal';
 import { QRModal } from './components/QRModal';
 import { ScannerModal } from './components/ScannerModal';
 import { IncomingModal } from './components/IncomingModal';
+import { TextModal } from './components/TextModal';
 import { WebRTCManager } from './services/webrtc';
 import type { BatchMeta, Peer, TransferProgress } from './types';
 import { generateRoomCode, getDeviceDetails, sanitizeFileName, isFileSystemAccessSupported, isDirectoryPickerSupported } from './utils/helpers';
@@ -35,6 +36,7 @@ export function App() {
   // Transfer states
   const [activeTransfer, setActiveTransfer] = useState<TransferProgress | null>(null);
   const [incomingRequest, setIncomingRequest] = useState<{ senderSocketId: string; batchMeta: BatchMeta } | null>(null);
+  const [incomingText, setIncomingText] = useState<{ text: string; senderName: string; timestamp: number } | null>(null);
 
   // Device Info
   const [deviceInfo] = useState(getDeviceDetails());
@@ -87,6 +89,10 @@ export function App() {
 
     manager.onIncomingRequest = (senderSocketId, batchMeta) => {
       setIncomingRequest({ senderSocketId, batchMeta });
+    };
+
+    manager.onTextReceived = (textData) => {
+      setIncomingText(textData);
     };
 
     manager.onTransferResponse = async (accepted) => {
@@ -175,6 +181,14 @@ export function App() {
     pendingBatchRef.current = { peer, files, batchMeta };
   };
 
+  const handleSendText = (peer: Peer, text: string) => {
+    if (!webrtcRef.current || !text.trim()) return;
+    const success = webrtcRef.current.sendQuickText(peer.socketId, text.trim(), deviceInfo.deviceName);
+    if (!success) {
+      alert(`Could not send text to ${peer.deviceName}. Direct P2P connection is not ready.`);
+    }
+  };
+
   const handleAcceptIncoming = async () => {
     if (!incomingRequest || !webrtcRef.current) return;
     const { senderSocketId, batchMeta } = incomingRequest;
@@ -254,8 +268,12 @@ export function App() {
           }}
         />
 
-        {/* Multi-File Drop Zone */}
-        <DropZone selectedPeer={selectedPeer} onSendFiles={handleSendFiles} />
+        {/* Multi-File Drop Zone & Quick Text */}
+        <DropZone
+          selectedPeer={selectedPeer}
+          onSendFiles={handleSendFiles}
+          onSendText={handleSendText}
+        />
 
         {/* Feature Badges */}
         <div className="mt-8 flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs text-gray-500 font-medium select-none">
@@ -298,6 +316,10 @@ export function App() {
       <TransferModal
         transfer={activeTransfer}
         onClose={() => setActiveTransfer(null)}
+      />
+      <TextModal
+        data={incomingText}
+        onClose={() => setIncomingText(null)}
       />
     </div>
   );

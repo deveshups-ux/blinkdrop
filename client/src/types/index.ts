@@ -64,3 +64,11 @@ export interface PacketComplete {
   fileId: string;
   isLastFile: boolean;
 }
+
+export interface PacketQuickText {
+  type: 'quick-text';
+  textId: string;
+  text: string;
+  senderName: string;
+  timestamp: number;
+}

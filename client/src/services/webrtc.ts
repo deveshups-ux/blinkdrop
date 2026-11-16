@@ -81,6 +81,7 @@ export class WebRTCManager {
   ) => void;
   public onIncomingRequest?: (senderSocketId: string, batchMeta: BatchMeta) => void;
   public onTransferResponse?: (accepted: boolean) => void;
+  public onTextReceived?: (textData: { text: string; senderName: string; timestamp: number }) => void;
 
   constructor(serverUrl: string) {
     this.socket = io(serverUrl, {
@@ -228,11 +229,23 @@ export class WebRTCManager {
     this.destinationDirHandle = destination?.dirHandle || null;
   }
 
-  // Handle incoming data (Header JSON, Binary Chunks, or Completion)
+  // Handle incoming data (Header JSON, Binary Chunks, Completion, or Quick Text)
   private handleIncomingData(data: ArrayBuffer | string) {
     if (typeof data === 'string') {
       try {
         const message = JSON.parse(data);
+
+        // Instant P2P Quick Text / Clipboard Payload
+        if (message.type === 'quick-text') {
+          if (this.onTextReceived) {
+            this.onTextReceived({
+              text: message.text,
+              senderName: message.senderName || 'Anonymous Peer',
+              timestamp: message.timestamp || Date.now(),
+            });
+          }
+          return;
+        }
 
         if (message.type === 'header') {
           const meta: FileMeta = message.meta;
@@ -468,6 +481,31 @@ export class WebRTCManager {
       targetSocketId,
       accepted,
     });
+  }
+
+  // Send instantaneous P2P text or link over RTCDataChannel
+  public sendQuickText(targetSocketId: string, text: string, senderName: string): boolean {
+    const dc = this.dataChannels.get(targetSocketId);
+    if (!dc || dc.readyState !== 'open') {
+      console.warn(`[WebRTC] Cannot send text: Data channel with ${targetSocketId} is not open.`);
+      return false;
+    }
+
+    try {
+      dc.send(
+        JSON.stringify({
+          type: 'quick-text',
+          textId: Math.random().toString(36).substring(2, 9),
+          text,
+          senderName,
+          timestamp: Date.now(),
+        })
+      );
+      return true;
+    } catch (err) {
+      console.error('[WebRTC] Failed to send quick text:', err);
+      return false;
+    }
   }
 
   // Send batch files sequentially in a queue with Backpressure Control
