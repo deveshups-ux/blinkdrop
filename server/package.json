@@ -1,7 +1,7 @@
 {
-  "name": "zipdrop-server",
+  "name": "blinkdrop-server",
   "version": "1.0.0",
-  "description": "Signaling server for ZipDrop WebRTC P2P file transfer",
+  "description": "Signaling server for BlinkDrop WebRTC P2P file transfer",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

@@ -14,7 +14,7 @@ app.use(express.json());
 app.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
-    service: 'ZipDrop Signaling Server',
+    service: 'BlinkDrop Signaling Server',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
   });
@@ -184,5 +184,5 @@ io.on('connection', (socket: Socket) => {
 
 const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => {
-  console.log(`🚀 ZipDrop Signaling Server running on port ${PORT}`);
+  console.log(`🚀 BlinkDrop Signaling Server running on port ${PORT}`);
 });

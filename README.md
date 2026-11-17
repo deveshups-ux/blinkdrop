@@ -1,4 +1,4 @@
-# ⚡ ZipDrop
+# ⚡ BlinkDrop
 
 > **Universal Zero-Server Peer-to-Peer File Transfer Protocol**  
 > High-speed, end-to-end encrypted direct file sharing between any devices (Phone to PC, Mac to Android, etc.) powered by **WebRTC DataChannels**, **Socket.IO Signaling**, and **React**.
@@ -15,7 +15,7 @@
 * **P2P Quick Text & Clipboard Drop**: Instant sub-millisecond text, URL, code snippet, and password sharing between devices over WebRTC DataChannels with one-click clipboard copying (`navigator.clipboard.writeText`), URL auto-detection, and zero cloud relay.
 * **Progressive Web App (PWA) & Web Share Target**: Fully installable as a standalone desktop/mobile application with service worker caching, custom in-app install prompts (`beforeinstallprompt`), and native OS-level **Web Share Target API** integration to receive shared content directly from mobile apps.
 * **AirDrop-Style Radar UI**: Live animated radar detects nearby connected devices in the same room with device-type recognition (`desktop`, `mobile`, `tablet`).
-* **QR Code Pairing & In-App Camera Scanner**: Display a room QR code (`?room=ZIP-XXXX`) or scan another device's QR code directly inside the app using your device camera (`html5-qrcode`) or by entering the 4-character room code manually.
+* **QR Code Pairing & In-App Camera Scanner**: Display a room QR code (`?room=BLINK-XXXX`) or scan another device's QR code directly inside the app using your device camera (`html5-qrcode`) or by entering the 4-character room code manually.
 * **Cross-Network STUN & TURN Fallback**: Configured with Google public STUN servers and Metered OpenRelay community STUN/TURN fallback (plus support for custom TURN credentials) for reliable NAT traversal behind mobile data or restrictive firewalls.
 * **End-to-End Encrypted**: Native WebRTC DTLS/SCTP encryption ensures complete privacy between peers.
 

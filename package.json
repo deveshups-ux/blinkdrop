@@ -1,8 +1,8 @@
 {
-  "name": "zipdrop",
+  "name": "blinkdrop",
   "version": "1.0.0",
   "private": true,
-  "description": "ZipDrop - Universal Zero-Server Peer-to-Peer File Transfer Protocol",
+  "description": "BlinkDrop - Universal Zero-Server Peer-to-Peer File Transfer Protocol",
   "scripts": {
     "server": "npm --prefix server run dev",
     "client": "npm --prefix client run dev",

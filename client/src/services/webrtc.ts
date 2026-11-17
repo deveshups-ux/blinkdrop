@@ -177,7 +177,7 @@ export class WebRTCManager {
 
     if (isInitiator) {
       // Initiator creates data channel
-      const dc = pc.createDataChannel('zipdrop-channel', { ordered: true });
+      const dc = pc.createDataChannel('blinkdrop-channel', { ordered: true });
       this.setupDataChannel(targetSocketId, dc);
 
       // Create Offer

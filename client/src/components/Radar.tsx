@@ -107,7 +107,7 @@ export const Radar: React.FC<RadarProps> = ({
         <div className="absolute bottom-4 sm:bottom-6 text-center z-10 px-4 select-none">
           <p className="text-xs text-gray-400 font-medium">Looking for nearby devices...</p>
           <p className="text-[11px] text-gray-500 mt-0.5 max-w-xs mx-auto">
-            Open ZipDrop on your other phone or laptop to transfer directly!
+            Open BlinkDrop on your other phone or laptop to transfer directly!
           </p>
         </div>
       ) : (

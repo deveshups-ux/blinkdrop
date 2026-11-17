@@ -1,9 +1,9 @@
 /**
- * ZipDrop Service Worker
+ * BlinkDrop Service Worker
  * Enables offline caching, PWA installation, and Web Share Target capabilities.
  */
 
-const CACHE_NAME = 'zipdrop-cache-v1';
+const CACHE_NAME = 'blinkdrop-cache-v1';
 const PRECACHE_ASSETS = ['/', '/index.html', '/favicon.svg'];
 
 // 1. Install Event: Cache essential shell

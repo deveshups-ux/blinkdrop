@@ -24,7 +24,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onR
       return;
     }
 
-    const scannerId = 'zipdrop-qr-reader';
+    const scannerId = 'blinkdrop-qr-reader';
     const html5QrCode = new Html5Qrcode(scannerId);
     scannerRef.current = html5QrCode;
 
@@ -45,10 +45,13 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onR
               return;
             }
           } catch {
-            // Not a valid URL, could be raw code like ZIP-XXXX
+            // Not a valid URL, could be raw code like BLINK-XXXX
           }
 
-          if (decodedText.startsWith('ZIP-') || decodedText.length >= 4) {
+          if (
+            decodedText.startsWith('BLINK-') ||
+            decodedText.length >= 4
+          ) {
             handleSuccess(decodedText.trim().toUpperCase());
           }
         },
@@ -83,8 +86,8 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onR
     e.preventDefault();
     if (manualCode.trim()) {
       let code = manualCode.trim().toUpperCase();
-      if (!code.startsWith('ZIP-') && code.length === 4) {
-        code = `ZIP-${code}`;
+      if (!code.startsWith('BLINK-') && code.length === 4) {
+        code = `BLINK-${code}`;
       }
       handleSuccess(code);
     }
@@ -144,7 +147,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onR
         {useCamera ? (
           <div className="w-full flex flex-col items-center">
             <div className="relative w-full aspect-square max-w-[260px] rounded-2xl overflow-hidden border border-gray-800 bg-black flex items-center justify-center">
-              <div id="zipdrop-qr-reader" className="w-full h-full" />
+              <div id="blinkdrop-qr-reader" className="w-full h-full" />
             </div>
 
             {scannerError && (
@@ -159,13 +162,13 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onR
           <form onSubmit={handleManualSubmit} className="w-full flex flex-col gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-400 mb-1">
-                Enter Room Code (e.g. ZIP-8K2Q or 8K2Q)
+                Enter Room Code (e.g. BLINK-8K2Q or 8K2Q)
               </label>
               <input
                 type="text"
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value)}
-                placeholder="ZIP-XXXX"
+                placeholder="BLINK-XXXX"
                 className="w-full px-4 py-2.5 rounded-xl bg-gray-950 border border-gray-800 focus:border-cyan-400 focus:outline-none text-center font-mono uppercase text-lg tracking-wider text-cyan-300 placeholder:text-gray-700"
                 autoFocus
               />

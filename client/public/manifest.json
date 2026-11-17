@@ -1,6 +1,6 @@
 {
-  "name": "ZipDrop - P2P File Transfer",
-  "short_name": "ZipDrop",
+  "name": "BlinkDrop - P2P File Transfer",
+  "short_name": "BlinkDrop",
   "description": "Universal Zero-Server Peer-to-Peer File Transfer Protocol powered by WebRTC",
   "start_url": "/",
   "display": "standalone",

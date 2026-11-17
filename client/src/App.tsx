@@ -311,7 +311,7 @@ export function App() {
 
       {/* Footer */}
       <footer className="w-full text-center py-4 border-t border-gray-900/80 text-xs text-gray-600 select-none">
-        ZipDrop • Universal P2P File Transfer Protocol • WebRTC & React
+        BlinkDrop • Universal P2P File Transfer Protocol • WebRTC & React
       </footer>
 
       {/* Modals */}
