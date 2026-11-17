@@ -147,6 +147,19 @@ export function App() {
       window.history.replaceState(null, '', newUrl);
     }
 
+    // Check for Web Share Target content shared from other mobile apps
+    if (urlParams.get('shared') === 'true') {
+      const sharedContent = urlParams.get('text') || urlParams.get('url') || urlParams.get('title');
+      if (sharedContent) {
+        console.log('📥 [PWA Web Share Target] Received content:', sharedContent);
+        setIncomingText({
+          text: sharedContent,
+          senderName: 'Shared from Device Sheet',
+          timestamp: Date.now(),
+        });
+      }
+    }
+
     setRoomId(currentRoom);
     connectToRoom(currentRoom);
 

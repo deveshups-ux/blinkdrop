@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Zap, QrCode, Copy, Check, Radio, Camera } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Zap, QrCode, Copy, Check, Radio, Camera, Download } from 'lucide-react';
 
 interface NavbarProps {
   roomId: string;
@@ -17,6 +17,45 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenScanner,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    // Check if already running in standalone PWA mode
+    if (
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (navigator as any).standalone === true
+    ) {
+      setIsInstalled(true);
+      return;
+    }
+
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+
+    window.addEventListener('appinstalled', () => {
+      setIsInstalled(true);
+      setInstallPrompt(null);
+    });
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setIsInstalled(true);
+    }
+    setInstallPrompt(null);
+  };
 
   const copyRoomLink = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -57,6 +96,18 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Room Badge & Actions */}
       <div className="flex items-center gap-1.5 sm:gap-2">
+        {/* Install PWA Button */}
+        {installPrompt && !isInstalled && (
+          <button
+            onClick={handleInstallClick}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-cyan-950/90 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-900/60 text-xs sm:text-sm font-semibold transition-all shadow-md shadow-cyan-950/50"
+            title="Install ZipDrop as an App on your device"
+          >
+            <Download className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden sm:inline">Install App</span>
+          </button>
+        )}
+
         {/* Room ID Pill */}
         <button
           onClick={copyRoomLink}
