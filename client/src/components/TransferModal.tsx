@@ -19,26 +19,26 @@ export const TransferModal: React.FC<TransferModalProps> = ({ transfer, onClose 
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
         <motion.div
           initial={{ opacity: 0, scale: 0.9, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 10 }}
-          className="relative w-full max-w-md rounded-3xl bg-gray-900 border border-gray-800 p-6 shadow-2xl overflow-hidden"
+          className="relative w-full max-w-md rounded-3xl bg-[#0b1120] border border-white/[0.1] p-6 shadow-2xl overflow-hidden"
         >
           {/* Subtle Glow */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-24 bg-cyan-500/10 blur-2xl pointer-events-none" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-24 bg-cyan-500/15 blur-2xl pointer-events-none" />
 
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-3">
               <div
-                className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
                   isDone
-                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                     : isSending
-                    ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                    : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                    ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30'
+                    : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
                 }`}
               >
                 {isDone ? (
@@ -50,15 +50,15 @@ export const TransferModal: React.FC<TransferModalProps> = ({ transfer, onClose 
                 )}
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-gray-200">
+                <h3 className="text-sm font-semibold text-white">
                   {isDone
                     ? `Transferred ${transfer.totalFiles} ${transfer.totalFiles === 1 ? 'file' : 'files'}!`
                     : isSending
-                    ? 'Sending Files (P2P)...'
+                    ? 'Beaming Files (P2P)...'
                     : 'Receiving Files (P2P)...'}
                 </h3>
-                <p className="text-xs text-gray-400 font-mono flex items-center gap-1">
-                  <Zap className="w-3 h-3 text-cyan-400" />
+                <p className="text-xs text-gray-400 font-mono flex items-center gap-1.5 mt-0.5">
+                  <Zap className="w-3.5 h-3.5 text-cyan-400" />
                   {transfer.speed}
                 </p>
               </div>
@@ -66,7 +66,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({ transfer, onClose 
 
             {/* Batch Pill */}
             <div className="flex flex-col items-end">
-              <span className="text-base font-bold font-mono text-cyan-400">
+              <span className="text-lg font-bold font-mono text-cyan-400">
                 {transfer.totalBatchProgress}%
               </span>
               <span className="text-[10px] text-gray-400 flex items-center gap-1">
@@ -78,17 +78,17 @@ export const TransferModal: React.FC<TransferModalProps> = ({ transfer, onClose 
 
           {/* Mode Pill for Zero-RAM vs Memory Buffer */}
           {transfer.type === 'receiving' && (
-            <div className="mb-3 flex items-center justify-between px-3 py-1.5 rounded-xl bg-gray-950/80 border border-gray-800 text-[11px]">
-              <span className="text-gray-400">Pipeline</span>
+            <div className="mb-2.5 flex items-center justify-between px-3.5 py-2 rounded-xl bg-[#050914] border border-white/[0.08] text-[11px]">
+              <span className="text-gray-400">Streaming Engine</span>
               {transfer.isStreamingToDisk ? (
                 <span className="flex items-center gap-1.5 text-cyan-300 font-medium">
                   <HardDrive className="w-3.5 h-3.5 text-cyan-400" />
                   <span>Direct Disk Stream (0-RAM)</span>
                 </span>
               ) : (
-                <span className="flex items-center gap-1.5 text-amber-400/90 font-medium">
+                <span className="flex items-center gap-1.5 text-amber-300 font-medium">
                   <Files className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Memory Buffer (Blob)</span>
+                  <span>In-Memory Buffer (Blob)</span>
                 </span>
               )}
             </div>
@@ -96,19 +96,19 @@ export const TransferModal: React.FC<TransferModalProps> = ({ transfer, onClose 
 
           {/* Wake Lock Active Indicator */}
           {wakeLockManager.isSupported() && !isDone && (
-            <div className="mb-3 flex items-center justify-between px-3 py-1.5 rounded-xl bg-amber-950/30 border border-amber-800/30 text-[11px]">
-              <span className="text-gray-400">Power State</span>
+            <div className="mb-2.5 flex items-center justify-between px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px]">
+              <span className="text-gray-400">Power Lock</span>
               <span className="flex items-center gap-1.5 text-amber-300 font-medium">
                 <Sun className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                <span>Screen Sleep Prevented (Active)</span>
+                <span>Screen Kept Awake</span>
               </span>
             </div>
           )}
 
           {/* SHA-256 Cryptographic Integrity Badge */}
           {transfer.hash && (
-            <div className="mb-3 flex items-center justify-between px-3 py-1.5 rounded-xl bg-gray-950/80 border border-gray-800 text-[11px]">
-              <span className="text-gray-400">Integrity</span>
+            <div className="mb-3 flex items-center justify-between px-3.5 py-2 rounded-xl bg-[#050914] border border-white/[0.08] text-[11px]">
+              <span className="text-gray-400">Integrity Hash</span>
               {transfer.verificationFailed ? (
                 <span className="flex items-center gap-1.5 text-rose-400 font-medium">
                   <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
@@ -120,7 +120,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({ transfer, onClose 
                   <span>SHA-256 Bit-Perfect ({formatHashPreview(transfer.hash)})</span>
                 </span>
               ) : (
-                <span className="flex items-center gap-1.5 text-cyan-400/90 font-mono text-[10px]">
+                <span className="flex items-center gap-1.5 text-cyan-300 font-mono text-[10px]">
                   <span>SHA: {formatHashPreview(transfer.hash)}</span>
                 </span>
               )}
@@ -128,18 +128,18 @@ export const TransferModal: React.FC<TransferModalProps> = ({ transfer, onClose 
           )}
 
           {/* Current File Card */}
-          <div className="bg-gray-950/60 rounded-xl p-3 border border-gray-800/80 mb-4">
+          <div className="bg-[#050914] rounded-2xl p-3.5 border border-white/[0.08] mb-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-gray-200 truncate max-w-[260px]">
+              <p className="text-sm font-medium text-white truncate max-w-[260px]">
                 {transfer.fileName}
               </p>
-              <span className="text-xs font-mono text-gray-400 shrink-0">
+              <span className="text-xs font-mono text-cyan-400 shrink-0">
                 {transfer.progress}%
               </span>
             </div>
 
             {/* Current File Progress Bar */}
-            <div className="w-full h-1.5 rounded-full bg-gray-800 overflow-hidden my-2">
+            <div className="w-full h-1.5 rounded-full bg-white/[0.08] overflow-hidden my-2.5">
               <motion.div
                 className="h-full rounded-full bg-cyan-400"
                 style={{ width: `${transfer.progress}%` }}
@@ -154,14 +154,14 @@ export const TransferModal: React.FC<TransferModalProps> = ({ transfer, onClose 
 
           {/* Total Overall Batch Progress Bar */}
           <div className="mb-5">
-            <div className="flex items-center justify-between text-[11px] text-gray-400 mb-1">
+            <div className="flex items-center justify-between text-[11px] text-gray-400 mb-1.5">
               <span>Overall Batch Progress</span>
-              <span className="font-mono">{transfer.totalBatchProgress}%</span>
+              <span className="font-mono text-cyan-300">{transfer.totalBatchProgress}%</span>
             </div>
-            <div className="w-full h-2.5 rounded-full bg-gray-800 overflow-hidden">
+            <div className="w-full h-2.5 rounded-full bg-white/[0.08] overflow-hidden">
               <motion.div
                 className={`h-full rounded-full transition-all duration-150 ${
-                  isDone ? 'bg-emerald-500' : 'bg-gradient-to-r from-cyan-500 to-blue-600'
+                  isDone ? 'bg-emerald-500' : 'bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600'
                 }`}
                 style={{ width: `${transfer.totalBatchProgress}%` }}
               />
@@ -172,13 +172,13 @@ export const TransferModal: React.FC<TransferModalProps> = ({ transfer, onClose 
           {isDone ? (
             <button
               onClick={onClose}
-              className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition-all shadow-lg shadow-emerald-600/20"
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-semibold text-sm transition-all shadow-lg shadow-emerald-500/25 active:scale-95"
             >
-              Done
+              Completed
             </button>
           ) : (
-            <p className="text-center text-xs text-gray-500 animate-pulse">
-              Transferring directly over local WebRTC pipe. Do not close this tab.
+            <p className="text-center text-xs text-gray-400 animate-pulse">
+              Beaming directly over local WebRTC pipe. Keep this tab open.
             </p>
           )}
         </motion.div>

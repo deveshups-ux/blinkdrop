@@ -11,7 +11,7 @@ import { WebRTCManager } from './services/webrtc';
 import type { BatchMeta, Peer, TransferProgress } from './types';
 import { generateRoomCode, getDeviceDetails, sanitizeFileName, isFileSystemAccessSupported, isDirectoryPickerSupported } from './utils/helpers';
 import { wakeLockManager } from './utils/wakeLock';
-import { ShieldCheck, Wifi, Zap, Lock } from 'lucide-react';
+import { ShieldCheck, Wifi, Zap, Lock, HardDrive } from 'lucide-react';
 
 function getSignalingUrl(): string {
   if (import.meta.env.VITE_SIGNALING_URL) {
@@ -257,8 +257,12 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#070b14] text-gray-100 flex flex-col justify-between selection:bg-cyan-500/30 selection:text-cyan-200">
-      {/* Top Navbar */}
+    <div className="min-h-[100dvh] bg-[#030712] text-gray-100 flex flex-col justify-between selection:bg-cyan-500/30 selection:text-cyan-200 relative overflow-x-hidden bg-mesh-grid">
+      {/* Ambient Cyber Aurora Glows */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-gradient-to-b from-cyan-500/10 via-blue-500/5 to-transparent blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-10 right-1/4 w-[500px] h-[250px] bg-indigo-600/5 blur-[140px] pointer-events-none" />
+
+      {/* Edge-to-Edge Top Navbar */}
       <Navbar
         roomId={roomId}
         deviceName={deviceInfo.deviceName}
@@ -267,18 +271,20 @@ export function App() {
         onOpenScanner={() => setIsScannerOpen(true)}
       />
 
-      {/* Main Container */}
-      <main className="w-full max-w-4xl mx-auto px-4 py-6 sm:py-8 flex flex-col items-center">
+      {/* Main Command Hub Stage */}
+      <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-7 flex-1 flex flex-col items-center justify-center relative z-10">
         {/* Radar View with connected devices */}
         <Radar
           peers={peers}
           localDeviceName={deviceInfo.deviceName}
           localDeviceType={deviceInfo.deviceType}
           selectedPeer={selectedPeer}
+          roomId={roomId}
           onSelectPeer={handleSelectPeer}
           onSendClick={(peer) => {
             setSelectedPeer(peer);
           }}
+          onOpenQR={() => setIsQROpen(true)}
         />
 
         {/* Multi-File Drop Zone & Quick Text */}
@@ -288,30 +294,43 @@ export function App() {
           onSendText={handleSendText}
         />
 
-        {/* Feature Badges */}
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs text-gray-500 font-medium select-none">
-          <div className="flex items-center gap-1.5">
+        {/* Feature Trust Bar */}
+        <div className="mt-7 w-full max-w-4xl mx-auto px-4 sm:px-6 py-3 rounded-2xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-xl flex flex-wrap items-center justify-around gap-4 text-xs text-gray-400 select-none shadow-lg">
+          <div className="flex items-center gap-2">
             <Wifi className="w-4 h-4 text-cyan-400" />
-            <span>Local WiFi Direct Speed</span>
+            <span className="font-medium text-gray-300">Direct Local Wi-Fi Speed</span>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <Lock className="w-4 h-4 text-emerald-400" />
-            <span>End-to-End Encrypted</span>
+            <span className="font-medium text-gray-300">End-to-End P2P Encrypted</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4 text-blue-400" />
-            <span>Multi-File Queue</span>
+          <div className="flex items-center gap-2">
+            <HardDrive className="w-4 h-4 text-blue-400" />
+            <span className="font-medium text-gray-300">Zero-RAM Disk Stream</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Zap className="w-4 h-4 text-amber-400" />
-            <span>Zero Server Storage</span>
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-amber-400" />
+            <span className="font-medium text-gray-300">Zero Cloud Storage</span>
           </div>
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="w-full text-center py-4 border-t border-gray-900/80 text-xs text-gray-600 select-none">
-        BlinkDrop • Universal P2P File Transfer Protocol • WebRTC & React
+      {/* Sleek Edge-to-Edge Footer */}
+      <footer className="w-full border-t border-white/[0.06] bg-[#030712]/80 py-4 px-4 sm:px-8 backdrop-blur-xl select-none z-10">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs text-gray-500">
+          <div className="flex items-center gap-2">
+            <Zap className="w-3.5 h-3.5 text-cyan-400 fill-cyan-400" />
+            <span className="font-semibold text-gray-300">BlinkDrop</span>
+            <span>• Universal Peer-to-Peer Protocol</span>
+          </div>
+          <div className="flex items-center gap-3 text-[11px] text-gray-400">
+            <span>WebRTC SCTP Channels</span>
+            <span>•</span>
+            <span>Bit-Perfect SHA-256</span>
+            <span>•</span>
+            <span>Unlimited File Size</span>
+          </div>
+        </div>
       </footer>
 
       {/* Modals */}
