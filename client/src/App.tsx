@@ -7,6 +7,7 @@ import { QRModal } from './components/QRModal';
 import { ScannerModal } from './components/ScannerModal';
 import { IncomingModal } from './components/IncomingModal';
 import { TextModal } from './components/TextModal';
+import { HistoryDrawer } from './components/HistoryDrawer';
 import { WebRTCManager } from './services/webrtc';
 import type { BatchMeta, Peer, TransferProgress } from './types';
 import { generateRoomCode, getDeviceDetails, sanitizeFileName, isFileSystemAccessSupported, isDirectoryPickerSupported } from './utils/helpers';
@@ -29,9 +30,10 @@ export function App() {
   const [selectedPeer, setSelectedPeer] = useState<Peer | null>(null);
   const [connected, setConnected] = useState(false);
 
-  // Modals
+  // Modals & Drawers
   const [isQROpen, setIsQROpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // Transfer states
   const [activeTransfer, setActiveTransfer] = useState<TransferProgress | null>(null);
@@ -269,6 +271,7 @@ export function App() {
         connected={connected}
         onOpenQR={() => setIsQROpen(true)}
         onOpenScanner={() => setIsScannerOpen(true)}
+        onOpenHistory={() => setIsHistoryOpen(true)}
       />
 
       {/* Main Command Hub Stage */}
@@ -310,7 +313,7 @@ export function App() {
           </div>
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-amber-400" />
-            <span className="font-medium text-gray-300">Zero Cloud Storage</span>
+            <span className="font-medium text-gray-300">Resumable Chunk Sync</span>
           </div>
         </div>
       </main>
@@ -328,12 +331,12 @@ export function App() {
             <span>•</span>
             <span>Bit-Perfect SHA-256</span>
             <span>•</span>
-            <span>Unlimited File Size</span>
+            <span>IndexedDB Resumption</span>
           </div>
         </div>
       </footer>
 
-      {/* Modals */}
+      {/* Modals & Drawers */}
       <QRModal isOpen={isQROpen} onClose={() => setIsQROpen(false)} roomId={roomId} />
       <ScannerModal
         isOpen={isScannerOpen}
@@ -348,10 +351,16 @@ export function App() {
       <TransferModal
         transfer={activeTransfer}
         onClose={() => setActiveTransfer(null)}
+        onPause={() => webrtcRef.current?.pauseTransfer()}
+        onResume={() => webrtcRef.current?.resumeTransfer()}
       />
       <TextModal
         data={incomingText}
         onClose={() => setIncomingText(null)}
+      />
+      <HistoryDrawer
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
       />
     </div>
   );

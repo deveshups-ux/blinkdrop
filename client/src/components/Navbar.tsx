@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, QrCode, Copy, Check, Radio, Camera, Download } from 'lucide-react';
+import { Zap, QrCode, Copy, Check, Radio, Camera, Download, History } from 'lucide-react';
 
 interface NavbarProps {
   roomId: string;
@@ -7,6 +7,7 @@ interface NavbarProps {
   connected: boolean;
   onOpenQR: () => void;
   onOpenScanner: () => void;
+  onOpenHistory: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -15,6 +16,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   connected,
   onOpenQR,
   onOpenScanner,
+  onOpenHistory,
 }) => {
   const [copied, setCopied] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
@@ -112,6 +114,16 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Room Pairing & Actions */}
         <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Transfer History Button (IndexedDB) */}
+          <button
+            onClick={onOpenHistory}
+            className="flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] hover:border-cyan-500/30 text-gray-300 hover:text-white text-xs sm:text-sm font-medium transition-all shadow-sm"
+            title="View persistent transfer history"
+          >
+            <History className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden md:inline">History</span>
+          </button>
+
           {/* Install PWA Button (When available) */}
           {installPrompt && !isInstalled && (
             <button

@@ -2,6 +2,7 @@ import { io, Socket } from 'socket.io-client';
 import type { BatchMeta, FileMeta, Peer, TransferProgress } from '../types';
 import { CHUNK_SIZE, formatBytes, sanitizeFileName } from '../utils/helpers';
 import { computeSHA256 } from '../utils/crypto';
+import { storageManager } from '../utils/storage';
 
 // STUN and TURN configuration for 100% reliable NAT traversal across firewalls (Jio/Airtel 5G, College WiFi, etc.)
 function getIceServers(): RTCConfiguration {
@@ -57,15 +58,26 @@ export class WebRTCManager {
     meta: FileMeta;
     chunks: ArrayBuffer[];
     bytesReceived: number;
+    chunkCounter: number;
     startTime: number;
     writableStream?: any | null;
     isStreamingToDisk?: boolean;
+    resumedFromBytes?: number;
+    resumedFromPercent?: number;
+    status: 'transferring' | 'paused' | 'completed';
   } | null = null;
 
   // File System Access API handles & sequential write queue for zero-RAM streaming
   private destinationFileHandle: any | null = null;
   private destinationDirHandle: any | null = null;
   private writeQueue: Promise<void> = Promise.resolve();
+
+  // Resumption offsets signaled by receiver
+  private pendingResumeOffsets = new Map<string, number>();
+
+  // Flow control pause flag
+  private isPaused = false;
+  private currentActiveTargetSocketId: string | null = null;
 
   // Event callbacks
   public onPeersUpdate?: (peers: Peer[]) => void;
@@ -198,6 +210,31 @@ export class WebRTCManager {
     pc.onconnectionstatechange = () => {
       console.log(`[WebRTC State with ${targetSocketId}]: ${pc.connectionState}`);
       if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+        // Mark active transfer as paused due to network disconnect
+        if (this.activeReceivingBatch && this.activeReceivingBatch.status === 'transferring') {
+          this.activeReceivingBatch.status = 'paused';
+          if (this.onProgress) {
+            this.onProgress({
+              batchId: this.activeReceivingBatch.batchId,
+              currentFileIndex: this.activeReceivingBatch.fileIndex,
+              totalFiles: this.activeReceivingBatch.totalFiles,
+              fileId: this.activeReceivingBatch.meta.id,
+              fileName: this.activeReceivingBatch.meta.name,
+              fileSize: this.activeReceivingBatch.meta.size,
+              progress: Math.min(100, Math.round((this.activeReceivingBatch.bytesReceived / this.activeReceivingBatch.meta.size) * 100)),
+              totalBatchProgress: Math.min(100, Math.round(((this.activeReceivingBatch.batchBytesPrior + this.activeReceivingBatch.bytesReceived) / this.activeReceivingBatch.totalBatchBytes) * 100)),
+              bytesTransferred: this.activeReceivingBatch.bytesReceived,
+              totalBytesTransferred: this.activeReceivingBatch.batchBytesPrior + this.activeReceivingBatch.bytesReceived,
+              totalBatchBytes: this.activeReceivingBatch.totalBatchBytes,
+              speed: 'Network Disconnected (Paused)',
+              type: 'receiving',
+              status: 'paused',
+              isStreamingToDisk: Boolean(this.activeReceivingBatch.isStreamingToDisk),
+              resumedFromBytes: this.activeReceivingBatch.resumedFromBytes,
+              resumedFromPercent: this.activeReceivingBatch.resumedFromPercent,
+            });
+          }
+        }
         this.closePeer(targetSocketId);
       }
     };
@@ -215,7 +252,7 @@ export class WebRTCManager {
     };
 
     dc.onmessage = (event) => {
-      this.handleIncomingData(event.data);
+      this.handleIncomingData(event.data, dc, socketId);
     };
 
     dc.onclose = () => {
@@ -229,13 +266,13 @@ export class WebRTCManager {
     this.destinationDirHandle = destination?.dirHandle || null;
   }
 
-  // Handle incoming data (Header JSON, Binary Chunks, Completion, or Quick Text)
-  private handleIncomingData(data: ArrayBuffer | string) {
+  // Handle incoming data (Header JSON, Binary Chunks, Completion, Quick Text, or Resume ACK)
+  private handleIncomingData(data: ArrayBuffer | string, dc?: RTCDataChannel, senderSocketId?: string) {
     if (typeof data === 'string') {
       try {
         const message = JSON.parse(data);
 
-        // Instant P2P Quick Text / Clipboard Payload
+        // 1. Instant P2P Quick Text / Clipboard Payload
         if (message.type === 'quick-text') {
           if (this.onTextReceived) {
             this.onTextReceived({
@@ -247,10 +284,37 @@ export class WebRTCManager {
           return;
         }
 
+        // 2. Resumable Handshake: Sender receives Resume ACK request from receiver
+        if (message.type === 'resume-request') {
+          console.log(`📥 [Resumable ACK Received] Receiver already has ${formatBytes(message.startOffset)} for file ${message.fileId}`);
+          this.pendingResumeOffsets.set(message.fileId, message.startOffset);
+          return;
+        }
+
+        // 3. Pause & Resume Commands from remote peer
+        if (message.type === 'pause') {
+          this.isPaused = true;
+          if (this.activeReceivingBatch) {
+            this.activeReceivingBatch.status = 'paused';
+          }
+          return;
+        }
+
+        if (message.type === 'resume') {
+          this.isPaused = false;
+          if (this.activeReceivingBatch) {
+            this.activeReceivingBatch.status = 'transferring';
+          }
+          return;
+        }
+
+        // 4. File Header Packet
         if (message.type === 'header') {
           const meta: FileMeta = message.meta;
+          const batchId = message.batchId;
+
           this.activeReceivingBatch = {
-            batchId: message.batchId,
+            batchId,
             fileIndex: message.fileIndex,
             totalFiles: message.totalFiles,
             totalBatchBytes: message.totalBatchBytes,
@@ -258,20 +322,74 @@ export class WebRTCManager {
             meta,
             chunks: [],
             bytesReceived: 0,
+            chunkCounter: 0,
             startTime: Date.now(),
             writableStream: null,
             isStreamingToDisk: false,
+            resumedFromBytes: 0,
+            resumedFromPercent: 0,
+            status: 'transferring',
           };
 
-          // Sequential write queue for initializing writable stream
+          // Sequential write queue to prepare disk stream & check IndexedDB for Resumable state
           this.writeQueue = this.writeQueue.then(async () => {
             const batch = this.activeReceivingBatch;
             if (!batch || batch.meta.id !== meta.id) return;
 
+            // Check if user has an existing session in IndexedDB for this file
+            let resumeOffset = 0;
+            let lastChunkIndex = 0;
+            const existingSession = await storageManager.findResumableSession(meta.name, meta.size);
+
+            if (existingSession && existingSession.bytesReceived > 0) {
+              resumeOffset = existingSession.bytesReceived;
+              lastChunkIndex = existingSession.lastChunkIndex;
+              batch.bytesReceived = resumeOffset;
+              batch.chunkCounter = lastChunkIndex;
+              batch.resumedFromBytes = resumeOffset;
+              batch.resumedFromPercent = Math.round((resumeOffset / meta.size) * 100);
+
+              console.log(`🔄 [Resumable] Found existing progress for "${meta.name}". Resuming from offset ${formatBytes(resumeOffset)} (${batch.resumedFromPercent}%)`);
+
+              // Notify sender over DataChannel to start streaming from resumeOffset
+              if (dc && dc.readyState === 'open') {
+                dc.send(
+                  JSON.stringify({
+                    type: 'resume-request',
+                    batchId,
+                    fileId: meta.id,
+                    startOffset: resumeOffset,
+                    lastChunkIndex,
+                  })
+                );
+              }
+            } else {
+              // Persist fresh session in IndexedDB
+              await storageManager.saveSession({
+                fileId: meta.id,
+                batchId,
+                name: meta.name,
+                size: meta.size,
+                type: meta.type,
+                fileIndex: message.fileIndex,
+                totalFiles: message.totalFiles,
+                bytesReceived: 0,
+                lastChunkIndex: 0,
+                totalChunks: meta.totalChunks,
+                hash: meta.hash,
+                status: 'transferring',
+                updatedAt: Date.now(),
+              });
+            }
+
+            // Setup File System Access API Writable File Stream
             if (this.destinationFileHandle && message.fileIndex === 1) {
               try {
-                batch.writableStream = await this.destinationFileHandle.createWritable();
+                batch.writableStream = await this.destinationFileHandle.createWritable({ keepExistingData: true });
                 batch.isStreamingToDisk = true;
+                if (resumeOffset > 0 && typeof batch.writableStream.seek === 'function') {
+                  await batch.writableStream.seek(resumeOffset);
+                }
               } catch (err) {
                 console.warn('Failed to create writable stream from file handle, falling back to RAM:', err);
                 batch.isStreamingToDisk = false;
@@ -280,8 +398,11 @@ export class WebRTCManager {
               try {
                 const cleanName = sanitizeFileName(meta.name);
                 const fileHandle = await this.destinationDirHandle.getFileHandle(cleanName, { create: true });
-                batch.writableStream = await fileHandle.createWritable();
+                batch.writableStream = await fileHandle.createWritable({ keepExistingData: true });
                 batch.isStreamingToDisk = true;
+                if (resumeOffset > 0 && typeof batch.writableStream.seek === 'function') {
+                  await batch.writableStream.seek(resumeOffset);
+                }
               } catch (err) {
                 console.warn('Failed to create writable stream from directory handle, falling back to RAM:', err);
                 batch.isStreamingToDisk = false;
@@ -359,6 +480,20 @@ export class WebRTCManager {
                 }
               }
 
+              // Mark completed in IndexedDB & add to persistent history
+              await storageManager.completeSession(batch.meta.id);
+              await storageManager.addHistory({
+                id: `${batch.meta.id}-${Date.now()}`,
+                name: batch.meta.name,
+                size: batch.meta.size,
+                type: 'received',
+                speed: 'Completed',
+                peerName: senderSocketId || 'Remote Device',
+                timestamp: Date.now(),
+                hash: batch.meta.hash,
+                verified: isVerified,
+              });
+
               if (this.onProgress) {
                 this.onProgress({
                   batchId: batch.batchId,
@@ -379,6 +514,8 @@ export class WebRTCManager {
                   hash: batch.meta.hash,
                   isVerified,
                   verificationFailed,
+                  resumedFromBytes: batch.resumedFromBytes,
+                  resumedFromPercent: batch.resumedFromPercent,
                 });
               }
 
@@ -404,6 +541,12 @@ export class WebRTCManager {
       const batch = this.activeReceivingBatch;
       if (batch) {
         batch.bytesReceived += data.byteLength;
+        batch.chunkCounter = (batch.chunkCounter || 0) + 1;
+
+        // Periodic checkpoint: Update IndexedDB progress every 16 chunks (~1 MB)
+        if (batch.chunkCounter % 16 === 0) {
+          storageManager.updateChunkProgress(batch.meta.id, batch.bytesReceived, batch.chunkCounter);
+        }
 
         // Sequential write to disk stream or push to RAM chunks
         this.writeQueue = this.writeQueue.then(async () => {
@@ -437,8 +580,10 @@ export class WebRTCManager {
             totalBatchBytes: batch.totalBatchBytes,
             speed: speedFormatted,
             type: 'receiving',
-            status: 'transferring',
+            status: batch.status === 'paused' ? 'paused' : 'transferring',
             isStreamingToDisk: Boolean(batch.isStreamingToDisk),
+            resumedFromBytes: batch.resumedFromBytes,
+            resumedFromPercent: batch.resumedFromPercent,
           });
         }
       }
@@ -483,6 +628,28 @@ export class WebRTCManager {
     });
   }
 
+  // Pause transfer manually
+  public pauseTransfer() {
+    this.isPaused = true;
+    if (this.currentActiveTargetSocketId) {
+      const dc = this.dataChannels.get(this.currentActiveTargetSocketId);
+      if (dc && dc.readyState === 'open') {
+        dc.send(JSON.stringify({ type: 'pause' }));
+      }
+    }
+  }
+
+  // Resume transfer manually
+  public resumeTransfer() {
+    this.isPaused = false;
+    if (this.currentActiveTargetSocketId) {
+      const dc = this.dataChannels.get(this.currentActiveTargetSocketId);
+      if (dc && dc.readyState === 'open') {
+        dc.send(JSON.stringify({ type: 'resume' }));
+      }
+    }
+  }
+
   // Send instantaneous P2P text or link over RTCDataChannel
   public sendQuickText(targetSocketId: string, text: string, senderName: string): boolean {
     const dc = this.dataChannels.get(targetSocketId);
@@ -508,12 +675,15 @@ export class WebRTCManager {
     }
   }
 
-  // Send batch files sequentially in a queue with Backpressure Control
+  // Send batch files sequentially in a queue with Backpressure Control & Resumption
   public async sendBatch(targetSocketId: string, files: File[], batchMeta: BatchMeta) {
     const dc = this.dataChannels.get(targetSocketId);
     if (!dc || dc.readyState !== 'open') {
       throw new Error('Data Channel is not open. Cannot transfer files.');
     }
+
+    this.currentActiveTargetSocketId = targetSocketId;
+    this.isPaused = false;
 
     // Set buffer threshold for backpressure (64 KB)
     dc.bufferedAmountLowThreshold = 65536;
@@ -548,11 +718,49 @@ export class WebRTCManager {
         })
       );
 
+      // Brief wait (80ms) for potential resume-request ACK from receiver
+      await new Promise((resolve) => setTimeout(resolve, 80));
+
+      // Check if receiver requested resumption from a specific offset
+      const resumeOffset = this.pendingResumeOffsets.get(meta.id) || 0;
+      let offset = resumeOffset;
+      let fileBytesSent = resumeOffset;
+      const resumedFromPercent = resumeOffset > 0 ? Math.round((resumeOffset / file.size) * 100) : 0;
+
+      if (resumeOffset > 0) {
+        console.log(`⚡ [Resuming File Stream] "${file.name}" starting from ${formatBytes(resumeOffset)} (${resumedFromPercent}%)`);
+      }
+
       const fileStartTime = Date.now();
-      let offset = 0;
-      let fileBytesSent = 0;
 
       while (offset < file.size) {
+        // Handle User Pause / Resume
+        while (this.isPaused) {
+          if (this.onProgress) {
+            this.onProgress({
+              batchId: batchMeta.batchId,
+              currentFileIndex: i + 1,
+              totalFiles: batchMeta.totalFiles,
+              fileId: meta.id,
+              fileName: file.name,
+              fileSize: file.size,
+              progress: Math.min(100, Math.round((fileBytesSent / file.size) * 100)),
+              totalBatchProgress: Math.min(100, Math.round(((batchBytesPrior + fileBytesSent) / batchMeta.totalBytes) * 100)),
+              bytesTransferred: fileBytesSent,
+              totalBytesTransferred: batchBytesPrior + fileBytesSent,
+              totalBatchBytes: batchMeta.totalBytes,
+              speed: 'Paused',
+              type: 'sending',
+              status: 'paused',
+              hash: meta.hash,
+              isVerified: true,
+              resumedFromBytes: resumeOffset,
+              resumedFromPercent,
+            });
+          }
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+
         // BACKPRESSURE CHECK: If buffer is full (> 512 KB), wait for it to drain
         if (dc.bufferedAmount > 524288) {
           await new Promise<void>((resolve) => {
@@ -576,7 +784,7 @@ export class WebRTCManager {
         const totalBatchPercent = Math.min(100, Math.round((currentTotalBytes / batchMeta.totalBytes) * 100));
 
         const timeElapsed = (Date.now() - fileStartTime) / 1000 || 1;
-        const bytesPerSec = fileBytesSent / timeElapsed;
+        const bytesPerSec = (fileBytesSent - resumeOffset) / timeElapsed;
         const speedFormatted = `${formatBytes(bytesPerSec)}/s`;
 
         if (this.onProgress) {
@@ -597,6 +805,8 @@ export class WebRTCManager {
             status: isLastFile && filePercent === 100 ? 'completed' : 'transferring',
             hash: meta.hash,
             isVerified: true,
+            resumedFromBytes: resumeOffset,
+            resumedFromPercent,
           });
         }
       }
@@ -613,11 +823,26 @@ export class WebRTCManager {
         })
       );
 
+      // Record to sender's persistent history
+      await storageManager.addHistory({
+        id: `${meta.id}-${Date.now()}`,
+        name: file.name,
+        size: file.size,
+        type: 'sent',
+        speed: 'Completed',
+        peerName: targetSocketId,
+        timestamp: Date.now(),
+        hash: meta.hash,
+        verified: true,
+      });
+
       // Small 50ms pause between files to give the receiver's disk/event loop time to process
       if (!isLastFile) {
         await new Promise((resolve) => setTimeout(resolve, 50));
       }
     }
+
+    this.currentActiveTargetSocketId = null;
   }
 
   private closePeer(socketId: string) {

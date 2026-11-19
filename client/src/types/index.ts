@@ -35,11 +35,13 @@ export interface TransferProgress {
   totalBatchBytes: number;
   speed: string; // e.g. "14.2 MB/s"
   type: 'sending' | 'receiving';
-  status: 'pending' | 'transferring' | 'completed' | 'cancelled' | 'error';
+  status: 'pending' | 'transferring' | 'paused' | 'resuming' | 'completed' | 'cancelled' | 'error';
   isStreamingToDisk?: boolean;
   hash?: string;
   isVerified?: boolean;
   verificationFailed?: boolean;
+  resumedFromBytes?: number;
+  resumedFromPercent?: number;
 }
 
 export interface PacketHeader {
@@ -50,6 +52,24 @@ export interface PacketHeader {
   totalBatchBytes: number;
   batchBytesPrior: number;
   meta: FileMeta;
+}
+
+export interface PacketResumeRequest {
+  type: 'resume-request';
+  batchId: string;
+  fileId: string;
+  startOffset: number;
+  lastChunkIndex: number;
+}
+
+export interface PacketPause {
+  type: 'pause';
+  fileId: string;
+}
+
+export interface PacketResume {
+  type: 'resume';
+  fileId: string;
 }
 
 export interface PacketChunk {
