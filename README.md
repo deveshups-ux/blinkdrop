@@ -1,105 +1,194 @@
 # ⚡ BlinkDrop
 
-> **Universal Zero-Server Peer-to-Peer File Transfer Protocol**  
-> High-speed, end-to-end encrypted direct file sharing between any devices (Phone to PC, Mac to Android, etc.) powered by **WebRTC DataChannels**, **Socket.IO Signaling**, and **React**.
+<div align="center">
+
+  **Universal Zero-Server Peer-to-Peer File Transfer Protocol**  
+  *High-speed, end-to-end encrypted direct file sharing between any devices powered by WebRTC SCTP DataChannels, IndexedDB Resumption, and React 19.*
+
+  [![Live Demo](https://img.shields.io/badge/Demo-blinkdrop--p2p.vercel.app-06b6d4?style=for-the-badge&logo=vercel&logoColor=white)](https://blinkdrop-p2p.vercel.app)
+  [![WebRTC](https://img.shields.io/badge/Networking-WebRTC%20SCTP-3b82f6?style=for-the-badge&logo=webrtc&logoColor=white)](https://webrtc.org/)
+  [![IndexedDB](https://img.shields.io/badge/Persistence-IndexedDB-10b981?style=for-the-badge)](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API)
+  [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+  [![React 19](https://img.shields.io/badge/React-19.0-61dafb?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+
+</div>
 
 ---
 
-## 🚀 Key Features
+## 🌐 Live Production Deployment
 
-* **Zero Cloud Storage & 100% Free**: Files never touch any cloud server or database. Data streams directly peer-to-peer (P2P) between browsers over local WiFi/LAN or across networks.
-* **Multi-File Batch Queue**: Select or drag-and-drop multiple files at once, add or remove items before sending, accept/decline incoming batch requests, and transfer files sequentially with per-file and overall batch progress tracking.
-* **Zero-RAM Direct Disk Streaming**: Overcomes browser V8 heap limits by streaming chunks directly to the user's hard drive/SSD via the **File System Access API** (`showSaveFilePicker` for single files and `showDirectoryPicker` for batch transfers) with sequential Promise-queued disk writes, keeping RAM consumption constant (<40MB) even on 10GB+ transfers, with graceful fallback for Safari/mobile.
-* **Large File Streaming with Backpressure**: Splits files into **16 KB binary chunks (`ArrayBuffer`)** with `RTCDataChannel` `bufferedAmount` flow control (64 KB low threshold / 512 KB high-water mark) to stream large files smoothly without overflowing browser memory.
-* **Screen Wake Lock & Sleep Prevention**: Employs the **Screen Wake Lock API** (`navigator.wakeLock`) during active transfers to keep mobile/desktop displays awake, preventing OS-level background timer throttling, radio chip sleep, and dropped WebRTC SCTP connections, with automatic re-acquisition on tab visibility changes.
-* **P2P Quick Text & Clipboard Drop**: Instant sub-millisecond text, URL, code snippet, and password sharing between devices over WebRTC DataChannels with one-click clipboard copying (`navigator.clipboard.writeText`), URL auto-detection, and zero cloud relay.
-* **Progressive Web App (PWA) & Web Share Target**: Fully installable as a standalone desktop/mobile application with service worker caching, custom in-app install prompts (`beforeinstallprompt`), and native OS-level **Web Share Target API** integration to receive shared content directly from mobile apps.
-* **AirDrop-Style Radar UI**: Live animated radar detects nearby connected devices in the same room with device-type recognition (`desktop`, `mobile`, `tablet`).
-* **QR Code Pairing & In-App Camera Scanner**: Display a room QR code (`?room=BLINK-XXXX`) or scan another device's QR code directly inside the app using your device camera (`html5-qrcode`) or by entering the 4-character room code manually.
-* **Cross-Network STUN & TURN Fallback**: Configured with Google public STUN servers and Metered OpenRelay community STUN/TURN fallback (plus support for custom TURN credentials) for reliable NAT traversal behind mobile data or restrictive firewalls.
-* **End-to-End Encrypted**: Native WebRTC DTLS/SCTP encryption ensures complete privacy between peers.
+* **Live App**: [https://blinkdrop-p2p.vercel.app](https://blinkdrop-p2p.vercel.app)
+* **GitHub Repository**: [https://github.com/deveshups-ux/blinkdrop](https://github.com/deveshups-ux/blinkdrop)
 
 ---
 
-## 🛡️ Security & Reliability
+## 🚀 Key Architectural Highlights
 
-* **Cryptographic SHA-256 Checksum Verification**: Computes hardware-accelerated SHA-256 digital fingerprints via the **Web Crypto API** (`crypto.subtle.digest`) on both sender and receiver to verify bit-perfect integrity, detecting any packet corruption, truncation, or payload tampering across P2P channels.
-* **Filename Sanitization**: Received filenames are sanitized client-side to strip path traversal (`../`), reserved filesystem characters, and control characters, and are capped at 255 characters.
-* **Signaling Input Validation**: Room IDs, device names, and device types are validated and sanitized on the signaling server.
-* **Rate Limiting & Room Guards**: Socket.IO connections are rate-limited (60 connections/minute per IP), signaling payloads are capped at `1 MB`, and rooms are limited to a maximum of 12 concurrent peers.
+### 1. 🔄 Resumable Transfers with Chunk ACK & IndexedDB State Engine
+* **The Problem**: On standard WebRTC apps, if Wi-Fi flickers or an ICE connection drops at 90% of a 5 GB file, the in-flight buffer is lost and the transfer restarts from 0%.
+* **The Solution**: 
+  - Integrated browser-native **IndexedDB** (`blinkdrop_db`) with object stores for active sessions and historical records.
+  - As 64 KB binary chunks arrive, receiver checkpoints written byte offsets every 1 MB without blocking the main event loop.
+  - On reconnection or resume, receiver dispatches a `resume-request` packet with `startOffset`.
+  - The sender performs zero-copy delta slicing (`file.slice(offset)`), and receiver invokes Chromium's `FileSystemWritableFileStream.seek(offset)` to append newly arrived chunks seamlessly.
+  - Supports live **Manual Pause & Auto-Resume** during active transfers.
+
+### 2. 💾 Zero-RAM Direct-to-Disk Streaming
+* Overcomes the browser V8 heap ceiling (~1.5–2 GB) by streaming incoming SCTP chunks straight to NVMe/SSD storage using the **File System Access API** (`showSaveFilePicker` for single files and `showDirectoryPicker` for batch folders).
+* Driven by a sequential Promise-chained write queue, keeping heap memory flat (<35 MB RAM) regardless of whether streaming a 500 MB video or a 50 GB archive. Graceful in-memory Blob fallback for browsers without File System Access API.
+
+### 3. 🌊 Adaptive Backpressure & Flow Control
+* Monitors `RTCDataChannel.bufferedAmount` against high-water marks (512 KB) and pauses reading streams until the NIC drains the buffer, triggering the `bufferedamountlow` event (64 KB threshold) to prevent buffer bloat and dropped UDP/SCTP packets across fluctuating cellular networks.
+
+### 4. 🛡️ Bit-Perfect Cryptographic Hash Verification (SHA-256)
+* Leverages the hardware-accelerated **Web Crypto API** (`crypto.subtle.digest`) to generate incremental SHA-256 cryptographic fingerprints.
+* The sender embeds the hash into the file header; upon stream finalization, the receiver recalculates the local byte checksum before closing the file handle to guarantee zero corruption or tampering.
+
+### 5. 📱 PWA & Native OS Web Share Target
+* Fully installable Progressive Web App with custom service worker caching, in-app install prompts, and **Web Share Target API** integration (`/?shared=true`), allowing native Android/iOS mobile apps to share files and links directly into BlinkDrop via the OS share sheet.
+
+### 6. ☀️ Screen Wake Lock API
+* Binds to the **Screen Wake Lock API** (`navigator.wakeLock`) during active transfers, preventing mobile OS screen sleep, radio chip throttling, and dropped WebRTC connections, with automatic re-acquisition on tab visibility changes.
+
+### 7. 📜 Persistent Transfer History Drawer
+* Dedicated slide-over drawer powered by IndexedDB logging every completed transfer (direction, size, timestamp, speed in MB/s, and SHA-256 integrity check status) with zero cloud dependency.
+
+### 8. 🎨 Cyber-Glassmorphic Adaptive UI
+* Deep cosmic obsidian design (`#030712`) with frosted glass cards, edge-to-edge desktop header, dynamic viewport height (`100dvh`) for zero mobile address bar clipping, and responsive AirDrop radar view.
+
+---
+
+## 🏗️ System Architecture & Protocol Flow
+
+```
+[ Sender Device ]                                      [ Receiver Device ]
+       |                                                        |
+       | <======== 1. SDP Offer/Answer (Socket.IO) ===========> |
+       | <======== 2. ICE Candidate Resolution (STUN/TURN) ====> |
+       |                                                        |
+       | == 3. Direct WebRTC SCTP DataChannel Established =====> |
+       |                                                        |
+       | ------- File Header Packet (Meta + SHA-256) ---------> |
+       |                                                        | (Checks IndexedDB for session)
+       | <------ Resume ACK Request (StartOffset / Chunks) ----- | (If adhoori file found)
+       |                                                        |
+       | ======= 4. Stream 64KB Binary Chunks =================> | ===> FileSystemWritableStream
+       |            (Backpressure: bufferedamountlow)           |      (Direct to Disk / NVMe)
+       |                                                        |
+       |                                                        | (Periodic 1MB Checkpoint in IndexedDB)
+       |                                                        |
+       | ------- Complete Packet (Finalize Stream) -----------> | ===> Compute SHA-256 Checksum
+       |                                                        | ===> Bit-Perfect Verified ✅
+       |                                                        | ===> Save Log to History Store
+```
 
 ---
 
 ## 🛠️ Tech Stack
 
-* **Frontend (`/client`)**: React 19, Vite, TypeScript, Tailwind CSS v4, Framer Motion, Lucide Icons, `qrcode.react`, `html5-qrcode`, `socket.io-client`
-* **P2P Networking**: Native Browser WebRTC (`RTCPeerConnection`, `RTCDataChannel`) with STUN/TURN ICE configuration
-* **Signaling Server (`/server`)**: Node.js, Express 5, Socket.IO, TypeScript, CORS, dotenv
+| Domain | Technologies |
+| :--- | :--- |
+| **Frontend Framework** | React 19, TypeScript, Vite, Tailwind CSS v4, Framer Motion |
+| **P2P Networking** | WebRTC (`RTCPeerConnection`, `RTCDataChannel`), STUN (Google), TURN (Metered OpenRelay) |
+| **Storage & Persistence** | Browser IndexedDB API (`blinkdrop_db`), File System Access API |
+| **Security & Crypto** | Web Crypto API (`crypto.subtle.digest` SHA-256), SCTP CRC32, Sanitization |
+| **Device & Hardware APIs**| Screen Wake Lock API, Web Share Target API, Service Workers (PWA) |
+| **Signaling Server** | Node.js, Express 5, Socket.IO, TypeScript |
+| **Deployment** | Vercel (Frontend Client), Render / Railway (Signaling Node) |
 
 ---
 
-## 📁 Project Structure
+## 📁 Repository Structure
 
 ```text
 .
-├── client/                 # React + Vite frontend
+├── client/                     # React 19 + TypeScript + Vite frontend
+│   ├── public/
+│   │   ├── favicon.svg         # Custom BlinkDrop electric squircle brand icon
+│   │   ├── manifest.json       # PWA manifest with Web Share Target
+│   │   └── sw.js               # Service Worker for offline app caching
 │   ├── src/
-│   │   ├── components/     # Navbar, Radar, DropZone, QRModal, ScannerModal, IncomingModal, TransferModal
-│   │   ├── services/       # WebRTCManager (signaling, ICE/TURN, sequential batch DataChannel transfers)
-│   │   ├── types/          # Shared TypeScript interfaces
-│   │   └── utils/          # Chunk size, byte formatting, device detection, room codes, filename sanitization
-│   └── .env.example        # Client environment variable template
-├── server/                 # Express + Socket.IO signaling server
-│   └── src/index.ts        # Room management, WebRTC signaling relay, rate limiting, /health endpoint
-└── package.json            # Root workspace scripts
+│   │   ├── components/
+│   │   │   ├── Navbar.tsx      # Edge-to-edge header with live status & History trigger
+│   │   │   ├── Radar.tsx       # Dynamic responsive radar canvas with orbit nodes
+│   │   │   ├── DropZone.tsx    # Drag-and-drop file staging & Quick Text beam
+│   │   │   ├── HistoryDrawer.tsx # Slide-over IndexedDB persistent transfer history
+│   │   │   ├── TransferModal.tsx # Progress modal with Pause/Resume & Delta-Sync badge
+│   │   │   ├── QRModal.tsx     # QR pairing dialog with copyable room link
+│   │   │   ├── ScannerModal.tsx# In-app camera scanner & manual code entry
+│   │   │   ├── IncomingModal.tsx# Transfer prompt with File System picker trigger
+│   │   │   └── TextModal.tsx   # P2P instant clipboard / URL receiver
+│   │   ├── services/
+│   │   │   └── webrtc.ts       # WebRTCManager (SCTP channels, flow control, resumable sync)
+│   │   ├── types/
+│   │   │   └── index.ts        # TypeScript interfaces (Packets, Peers, Meta, Sessions)
+│   │   └── utils/
+│   │       ├── storage.ts      # IndexedDB engine (sessions store & history store)
+│   │       ├── crypto.ts       # Hardware-accelerated SHA-256 checksum utility
+│   │       ├── wakeLock.ts     # Screen Wake Lock API manager
+│   │       └── helpers.ts      # Chunk sizing, byte formatters, filename sanitizers
+│   └── index.html              # HTML5 entry with PWA tags & theme colors
+├── server/                     # Node.js + Express + Socket.IO signaling relay
+│   └── src/index.ts            # Ephemeral room routing, ICE relay, IP rate-limiting
+└── README.md                   # Project documentation & engineering specs
 ```
 
 ---
 
 ## 📦 Getting Started (Local Development)
 
-### 1. Install Dependencies
+### 1. Clone & Install Dependencies
 ```bash
+git clone https://github.com/deveshups-ux/blinkdrop.git
+cd blinkdrop
+
+# Install both backend & frontend
 npm --prefix server install
 npm --prefix client install
 ```
 
 ### 2. Configure Environment Variables (Optional)
-Copy `client/.env.example` to `client/.env` if you want to override defaults:
+Copy `client/.env.example` to `client/.env` if you want custom endpoints:
 ```env
-# Signaling Server URL (defaults automatically to http(s)://<current-host>:5000 if unset)
+# Signaling Server URL (defaults to localhost:5000 in dev)
 VITE_SIGNALING_URL=http://localhost:5000
 
-# Optional: Custom TURN server credentials (defaults to Google STUN + OpenRelay community TURN)
+# Optional: Dedicated Metered.ca TURN credentials for strict NAT traversal
 # VITE_TURN_SERVER_URL=turn:a.relay.metered.ca:443
 # VITE_TURN_USERNAME=your_username
 # VITE_TURN_CREDENTIAL=your_password
 ```
-On the server, you can optionally set `PORT` (defaults to `5000`).
 
-### 3. Start the Signaling Server
+### 3. Run Locally
+In two separate terminals:
+
 ```bash
+# Terminal 1: Signaling Server (Port 5000)
 npm run server
-# Runs on http://localhost:5000 (health check at GET /health)
-```
 
-### 4. Start the Frontend Client
-```bash
+# Terminal 2: Vite Client (Port 5173)
 npm run client
-# Runs on http://localhost:5173
 ```
 
-Open `http://localhost:5173` in two browser tabs—or scan the QR code from your phone on the same network—to test live direct P2P transfers!
-
-### 5. Production Build
-```bash
-npm run build
-# Builds both /server (tsc -> dist/) and /client (tsc -b && vite build -> dist/)
-```
+Open `http://localhost:5173` in two browser tabs or scan the QR code from your phone on the same Wi-Fi network!
 
 ---
 
-## 🌐 Free Lifetime Deployment (₹0 Cost)
+## 🎙️ Engineering Interview Highlights (Cheat Sheet)
 
-* **Frontend (`/client`)**: Deploy to [Vercel](https://vercel.com) (Free Hobby Tier). Set `VITE_SIGNALING_URL` to your deployed signaling server URL (and optionally `VITE_TURN_SERVER_URL`, `VITE_TURN_USERNAME`, `VITE_TURN_CREDENTIAL` for dedicated TURN relay).
-* **Signaling Server (`/server`)**: Deploy to [Render](https://render.com) or [Railway](https://railway.app) (Free Tier) using `npm run build` and `npm start`, with `GET /health` as the health check path.
+If discussing this project in a Software Engineering interview:
+
+1. **Why WebRTC SCTP instead of WebSockets?**  
+   WebSockets force data through a central server, causing $O(N)$ infrastructure bandwidth costs and privacy vulnerabilities. WebRTC SCTP DataChannels establish direct peer-to-peer tunnels with zero intermediate storage and line-rate local Wi-Fi speeds.
+2. **How did you prevent Out-Of-Memory (OOM) crashes on 10 GB+ files?**  
+   Standard browser applications store received chunks in an in-memory `Blob` in the V8 heap, crashing when files exceed ~1.5 GB. BlinkDrop pipes binary chunks directly to the host storage drive via the File System Access API's `FileSystemWritableFileStream` with a sequential Promise queue, maintaining a constant memory footprint under 35 MB.
+3. **How does the Resumable Chunk Protocol work?**  
+   BlinkDrop maintains sparse chunk checkpoints in browser **IndexedDB**. When a connection drops and re-establishes, the receiver dispatches an ACK packet with its written offset. The sender delta-slices the file (`file.slice(offset)`), and the receiver repositions the write cursor (`stream.seek(offset)`), skipping already transferred data completely.
+4. **How do you handle network backpressure?**  
+   Sender monitors `dataChannel.bufferedAmount`. If the buffer exceeds 512 KB, chunk reading pauses until the network hardware triggers the `bufferedamountlow` event (64 KB threshold), eliminating packet drops and buffer bloat.
+
+---
+
+## 📄 License
+
+Distributed under the MIT License. Built with ❤️ by [Devesh](https://github.com/deveshups-ux).

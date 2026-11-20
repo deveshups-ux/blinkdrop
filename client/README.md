@@ -1,32 +1,21 @@
-# React + TypeScript + Vite
+# ⚡ BlinkDrop Frontend Client
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The frontend for **BlinkDrop** — an ultra-fast, zero-server Peer-to-Peer file transfer application powered by React 19, TypeScript, Tailwind CSS v4, WebRTC DataChannels, and IndexedDB Resumption.
 
-Currently, two official plugins are available:
+For full architectural documentation, system flowchart, and interview highlights, see the root [README.md](../README.md).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Quick Start
 
-## React Compiler
+```bash
+# Install dependencies
+npm install
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+# Start Vite dev server (runs on http://localhost:5173)
+npm run dev
 
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+# Production build
+npm run build
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Production Deployment
+Deployed on Vercel: [https://blinkdrop-p2p.vercel.app](https://blinkdrop-p2p.vercel.app)
